@@ -1964,7 +1964,7 @@ namespace Mono.Documentation
 
             if (type.IsGenericType ())
             {
-                MakeTypeParameters (root, type.GenericParameters, type, MDocUpdater.HasDroppedNamespace (type));
+                MakeTypeParameters (typeEntry, root, type.GenericParameters, type, MDocUpdater.HasDroppedNamespace (type));
             }
             else
             {
@@ -2057,12 +2057,12 @@ namespace Mono.Documentation
 
             if (DocUtils.IsDelegate (type))
             {
-                MakeTypeParameters (root, type.GenericParameters, type, MDocUpdater.HasDroppedNamespace (type));
+                MakeTypeParameters (typeEntry, root, type.GenericParameters, type, MDocUpdater.HasDroppedNamespace (type));
                 var member = type.GetMethod ("Invoke");
 
                 bool fxAlternateTriggered = false;
                 MakeParameters (root, member, member.Parameters, typeEntry, ref fxAlternateTriggered);
-                MakeReturnValue (root, member);
+                MakeReturnValue (typeEntry, root, member);
             }
 
             DocsNodeInfo typeInfo = new DocsNodeInfo (WriteElement (root, "Docs"), type);
@@ -2171,12 +2171,12 @@ namespace Mono.Documentation
 
             MakeAttributes (me, GetCustomAttributes (mi), typeEntry.Framework, mi.DeclaringType);
 
-            MakeReturnValue (me, mi, MDocUpdater.HasDroppedNamespace (mi));
+            MakeReturnValue (typeEntry, me, mi, MDocUpdater.HasDroppedNamespace (mi));
             if (mi is MethodReference)
             {
                 MethodReference mb = (MethodReference)mi;
                 if (mb.IsGenericMethod ())
-                    MakeTypeParameters (me, mb.GenericParameters, mi, MDocUpdater.HasDroppedNamespace (mi));
+                    MakeTypeParameters (typeEntry, me, mb.GenericParameters, mi, MDocUpdater.HasDroppedNamespace (mi));
             }
             bool fxAlternateTriggered = false;
             MakeParameters (me, mi, typeEntry, ref fxAlternateTriggered, MDocUpdater.HasDroppedNamespace (mi));
@@ -3261,6 +3261,8 @@ namespace Mono.Documentation
 
         private void MakeAttributes (XmlElement root, IEnumerable<string> attributes, FrameworkEntry fx, TypeReference t = null)
         {
+            bool isLastFx = fx != null && fx.IsLastFramework;
+
             if (!attributes.Any ())
             {
                 ClearElement (root, "Attributes");
@@ -3494,7 +3496,7 @@ namespace Mono.Documentation
             }
         }
 
-        private void MakeTypeParameters (XmlElement root, IList<GenericParameter> typeParams, MemberReference member, bool shouldDuplicateWithNew)
+        private void MakeTypeParameters (FrameworkTypeEntry entry, XmlElement root, IList<GenericParameter> typeParams, MemberReference member, bool shouldDuplicateWithNew)
         {
             if (typeParams == null || typeParams.Count == 0)
             {
@@ -3529,7 +3531,7 @@ namespace Mono.Documentation
                         XmlElement pe = root.OwnerDocument.CreateElement ("TypeParameter");
                         e.AppendChild (pe);
                         pe.SetAttribute ("Name", t.Name);
-                        MakeAttributes (pe, GetCustomAttributes (t.CustomAttributes, ""), t.DeclaringType);
+                        MakeAttributes (pe, GetCustomAttributes (t.CustomAttributes, ""), entry.Framework, t.DeclaringType);
                         XmlElement ce = (XmlElement)e.SelectSingleNode ("Constraints");
                         if (attrs == GenericParameterAttributes.NonVariant && constraints.Count == 0)
                         {
@@ -3603,7 +3605,7 @@ namespace Mono.Documentation
             return GetDocTypeFullName (type).Replace ("@", "&");
         }
 
-        private void MakeReturnValue (XmlElement root, TypeReference type, IList<CustomAttribute> attributes, bool shouldDuplicateWithNew = false)
+        private void MakeReturnValue (FrameworkTypeEntry typeEntry, XmlElement root, TypeReference type, IList<CustomAttribute> attributes, bool shouldDuplicateWithNew = false)
         {
             XmlElement e = WriteElement (root, "ReturnValue");
             var valueToUse = GetDocTypeFullName (type);
@@ -3615,25 +3617,25 @@ namespace Mono.Documentation
                 {
                     var newNode = WriteElementText (e, "ReturnType", valueToUse, forceNewElement: true);
                     if (attributes != null)
-                        MakeAttributes (e, GetCustomAttributes (attributes, ""), type);
+                    MakeAttributes (e, GetCustomAttributes (attributes, ""), typeEntry.Framework, type);
 
                     return newNode;
                 },
             type);
         }
 
-        private void MakeReturnValue (XmlElement root, MemberReference mi, bool shouldDuplicateWithNew = false)
+        private void MakeReturnValue (FrameworkTypeEntry typeEntry, XmlElement root, MemberReference mi, bool shouldDuplicateWithNew = false)
         {
             if (mi is MethodDefinition && ((MethodDefinition)mi).IsConstructor)
                 return;
             else if (mi is MethodDefinition)
-                MakeReturnValue (root, ((MethodDefinition)mi).ReturnType, ((MethodDefinition)mi).MethodReturnType.CustomAttributes, shouldDuplicateWithNew);
+                MakeReturnValue (typeEntry, root, ((MethodDefinition)mi).ReturnType, ((MethodDefinition)mi).MethodReturnType.CustomAttributes, shouldDuplicateWithNew);
             else if (mi is PropertyDefinition)
-                MakeReturnValue (root, ((PropertyDefinition)mi).PropertyType, null, shouldDuplicateWithNew);
+                MakeReturnValue (typeEntry, root, ((PropertyDefinition)mi).PropertyType, null, shouldDuplicateWithNew);
             else if (mi is FieldDefinition)
-                MakeReturnValue (root, ((FieldDefinition)mi).FieldType, null, shouldDuplicateWithNew);
+                MakeReturnValue (typeEntry, root, ((FieldDefinition)mi).FieldType, null, shouldDuplicateWithNew);
             else if (mi is EventDefinition)
-                MakeReturnValue (root, ((EventDefinition)mi).EventType, null, shouldDuplicateWithNew);
+                MakeReturnValue (typeEntry, root, ((EventDefinition)mi).EventType, null, shouldDuplicateWithNew);
             else if (mi is AttachedEventReference)
                 return;
             else if (mi is AttachedPropertyReference)
