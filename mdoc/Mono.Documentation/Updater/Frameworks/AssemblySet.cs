@@ -10,7 +10,7 @@ namespace Mono.Documentation.Updater.Frameworks
     /// <summary>
     /// Represents a set of assemblies that we want to document
     /// </summary>
-    class AssemblySet : IDisposable
+    public class AssemblySet : IDisposable
     {
         static readonly BaseAssemblyResolver resolver = new Frameworks.MDocResolver ();
         static IAssemblyResolver cachedResolver;
@@ -22,6 +22,7 @@ namespace Mono.Documentation.Updater.Frameworks
         HashSet<string> forwardedTypes = new HashSet<string> ();
         IEnumerable<string> importPaths;
         public IEnumerable<DocumentationImporter> Importers { get; private set; }
+        public FrameworkEntry Framework { get; set; }
 
         public AssemblySet (IEnumerable<string> paths) : this ("Default", paths, new string[0]) { }
 

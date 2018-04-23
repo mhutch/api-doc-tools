@@ -26,7 +26,7 @@ namespace Mono.Documentation.Updater.Frameworks
 			}
 		}
 
-        public FrameworkEntry StartProcessingAssembly (AssemblyDefinition assembly, IEnumerable<DocumentationImporter> importers, string Id, string Version) 
+        public FrameworkEntry StartProcessingAssembly (AssemblySet set, AssemblyDefinition assembly, IEnumerable<DocumentationImporter> importers, string Id, string Version) 
 		{
 			if (string.IsNullOrWhiteSpace (this.path))
 				return FrameworkEntry.Empty;
@@ -45,6 +45,8 @@ namespace Mono.Documentation.Updater.Frameworks
 				entry = new FrameworkEntry (frameworks) { Name = shortPath, Importers = importers, Id = Id, Version = Version};
 				frameworks.Add (entry);
 			}
+
+            set.Framework = entry;
 			return entry;
 		}
 
