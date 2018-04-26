@@ -3267,7 +3267,69 @@ namespace Mono.Documentation
             XmlElement e = (XmlElement)root.SelectSingleNode ("Attributes");
             bool isLastFx = fx != null && fx.IsLastFramework;
             bool noAttributes = attributes.Any ();
-            bool currentlyHasAttributes = e.ChildNodes.Count > 0;
+            bool currentlyHasAttributes = e != null && e.ChildNodes.Count > 0;
+
+            if (e == null)
+                e = root.OwnerDocument.CreateElement ("Attributes");
+            
+            var attributesCurrent = attributes
+                .Select (FilterSpecialChars)
+                .Distinct () // make sure there aren't any dupes
+                .ToDictionary (a => a, a => false); // key is the attribute, value is whether it was found
+
+            var attributesState = e.ChildNodes.Cast<XmlElement> ()
+                                .Select (elem => new
+                                {
+                                    ExistingValue = elem.FirstChild.InnerText,
+                                    XElement = elem,
+                                    Exists = attributesCurrent.ContainsKey (elem.FirstChild.InnerText)
+            }).ToArray();
+
+            // iterate this framework's attributes and compare against the state
+            foreach(var currentAttribute in attributesCurrent)
+            {
+                bool alreadyExists = attributesState.Any (state => state.ExistingValue == currentAttribute.Key);
+                if (alreadyExists)
+                {
+                    continue;
+                }
+                else // let's create it
+                {
+                    XmlElement ae = root.OwnerDocument.CreateElement ("Attribute");
+                    e.AppendChild (ae);
+                    WriteElementText (ae, "AttributeName", currentAttribute.Key);
+                }
+            }
+
+            // iterate the state's attributes to find attributes that aren't 
+            // a part of this framework's attributes.
+            foreach(var stateAttribute in attributesState)
+            {
+                if (stateAttribute.Exists) 
+                {
+                    continue;
+                }
+                else // let's remove it 
+                {
+                    stateAttribute.XElement.ParentNode.RemoveChild (stateAttribute.XElement);
+                }
+            }
+
+            if (e != null && e.ParentNode == null)
+                root.AppendChild (e);
+
+            if (e.ChildNodes.Count == 0 && e.ParentNode != null) {
+                var parent = e.ParentNode as XmlElement;
+                parent.RemoveChild (e);
+                if (parent.ChildNodes.Count == 0)
+                    parent.IsEmpty = true;
+                return;
+            }
+
+            NormalizeWhitespace (e);
+
+            return;
+            // oldnew
 
             Action<XmlElement> addWantsToDelete = (elem) =>
             {
@@ -3299,24 +3361,11 @@ namespace Mono.Documentation
             }
 
             // make the attributes
-            if (e == null)
-                e = root.OwnerDocument.CreateElement ("Attributes");
 
             // new
-            var attrValues = attributes
-                .Select (FilterSpecialChars)
-                .Distinct() // make sure there aren't any dupes
-                .ToDictionary (a => a, a => false); // key is the attribute, value is whether it was found
-            
-            var attrElements = e.ChildNodes.Cast<XmlElement> ()
-                                .Select (elem => new
-                                {
-                                    ExistingValue = elem.FirstChild.InnerText,
-                                    XElement = elem,
-                                    Exists = attrValues.ContainsKey(elem.FirstChild.InnerText)
-                                });
 
-            foreach(var attributeElement in attrElements)
+
+            foreach(var attributeElement in attributesState)
             {
                 if (!attributeElement.Exists) {
                     // This existing attribute doesn't exist in this set, must be in another FX
