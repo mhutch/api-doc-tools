@@ -3092,6 +3092,9 @@ namespace Mono.Documentation
 
         private static void NormalizeWhitespace (XmlElement e)
         {
+            if (e == null)
+                return;
+            
             // Remove all text and whitespace nodes from the element so it
             // is outputted with nice indentation and no blank lines.
             ArrayList deleteNodes = new ArrayList ();
@@ -3261,20 +3264,73 @@ namespace Mono.Documentation
 
         private void MakeAttributes (XmlElement root, IEnumerable<string> attributes, FrameworkEntry fx, TypeReference t = null)
         {
+            XmlElement e = (XmlElement)root.SelectSingleNode ("Attributes");
             bool isLastFx = fx != null && fx.IsLastFramework;
+            bool noAttributes = attributes.Any ();
+            bool currentlyHasAttributes = e.ChildNodes.Count > 0;
 
-            if (!attributes.Any ())
+            Action<XmlElement> addWantsToDelete = (elem) =>
             {
-                ClearElement (root, "Attributes");
-                return;
+                // TODO: add fx.Name to `WantsToDelete` attribute
+            };
+
+            Action<XmlElement> removeIf = (elem) =>
+            {
+                
+                // TODO: check to see if `WantsToDelete` contains every fx.Frameworks
+            };
+
+            if (noAttributes && currentlyHasAttributes)
+            {
+
+                foreach (var attribute in e.ChildNodes.Cast<XmlElement> ())
+                {
+                    if (isLastFx)
+                    {
+                        removeIf (attribute);
+                    }
+                    else
+                    {
+                        // this is not the last framework we're processing, so we need to just 
+                        // tag the nodes with WantsToDelete
+                        addWantsToDelete (attribute);
+                    }
+                }
             }
 
-            XmlElement e = (XmlElement)root.SelectSingleNode ("Attributes");
-            if (e != null)
-                e.RemoveAll ();
-            else if (e == null)
+            // make the attributes
+            if (e == null)
                 e = root.OwnerDocument.CreateElement ("Attributes");
 
+            // new
+            var attrValues = attributes
+                .Select (FilterSpecialChars)
+                .Distinct() // make sure there aren't any dupes
+                .ToDictionary (a => a, a => false); // key is the attribute, value is whether it was found
+            
+            var attrElements = e.ChildNodes.Cast<XmlElement> ()
+                                .Select (elem => new
+                                {
+                                    ExistingValue = elem.FirstChild.InnerText,
+                                    XElement = elem,
+                                    Exists = attrValues.ContainsKey(elem.FirstChild.InnerText)
+                                });
+
+            foreach(var attributeElement in attrElements)
+            {
+                if (!attributeElement.Exists) {
+                    // This existing attribute doesn't exist in this set, must be in another FX
+                    addWantsToDelete (attributeElement.XElement);
+                }
+            }
+
+            if (e != null && e.ParentNode == null)
+                root.AppendChild (e);
+
+            NormalizeWhitespace (e);
+
+            return;
+            // old
 
             foreach (string attribute in attributes)
             {
@@ -3284,7 +3340,7 @@ namespace Mono.Documentation
                 WriteElementText (ae, "AttributeName", value);
             }
 
-            if (e.ParentNode == null)
+            if (e != null && e.ParentNode == null)
                 root.AppendChild (e);
 
             NormalizeWhitespace (e);
