@@ -1026,8 +1026,9 @@ namespace Mono.Documentation
                     {
                         using (assm)
                         {
-                            AddIndexAssembly(assm, index_assemblies, assemblySet.Framework);
                             DoUpdateAssembly(assemblySet, assm, index_types, source, dest, goodfiles);
+                            AddIndexAssembly (assm, index_assemblies, assemblySet.Framework);
+
                             processedAssemblyCount++;
                         }
                     }
@@ -3282,15 +3283,29 @@ namespace Mono.Documentation
                                 {
                                     ExistingValue = elem.FirstChild.InnerText,
                                     XElement = elem,
-                                    Exists = attributesCurrent.ContainsKey (elem.FirstChild.InnerText)
             }).ToArray();
+
+            // test:
+            //   first fx has attr
+            //   second fx has attr
+            //   last fx has attr
 
             // iterate this framework's attributes and compare against the state
             foreach(var currentAttribute in attributesCurrent)
             {
-                bool alreadyExists = attributesState.Any (state => state.ExistingValue == currentAttribute.Key);
-                if (alreadyExists)
+                var alreadyExists = attributesState.FirstOrDefault (state => state.ExistingValue == currentAttribute.Key);
+                if (alreadyExists != null)
                 {
+                    if (!fx.IsFirstFramework) {
+                        alreadyExists.XElement.SetAttribute ("FrameworkAlternate", "");    
+                    }
+
+                    // if FXA, add fx.name
+                    if (alreadyExists.XElement.HasAttribute("FrameworkAlternate"))
+                    {
+                        var newfxlist = FXUtils.AddFXToList (alreadyExists.XElement.GetAttribute ("FrameworkAlternate"), fx.Name);
+                        alreadyExists.XElement.SetAttribute ("FrameworkAlternate", newfxlist);
+                    }
                     continue;
                 }
                 else // let's create it
@@ -3305,13 +3320,25 @@ namespace Mono.Documentation
             // a part of this framework's attributes.
             foreach(var stateAttribute in attributesState)
             {
-                if (stateAttribute.Exists) 
+                if (attributesCurrent.ContainsKey(stateAttribute.ExistingValue)) 
                 {
                     continue;
                 }
                 else // let's remove it 
                 {
+                    // if has FXA, remove from list
+                    if (stateAttribute.XElement.HasAttribute("FrameworkAlternate")) {
+                        var newfxlist = FXUtils.RemoveFXFromList (stateAttribute.XElement.GetAttribute ("FrameworkAlternate"), fx.Name);
+                        stateAttribute.XElement.SetAttribute ("FrameworkAlternate", newfxlist);
+                    }
                     stateAttribute.XElement.ParentNode.RemoveChild (stateAttribute.XElement);
+                }
+            }
+
+            if (fx.IsLastFramework) {
+                foreach(var attr in e.ChildNodes.Cast<XmlElement> ().ToArray()) {
+                    if (attr.HasAttribute ("FrameworkAlternate") && string.IsNullOrWhiteSpace (attr.GetAttribute ("FrameworkAlternate")))
+                        attr.ParentNode.RemoveChild (attr);
                 }
             }
 
@@ -3330,6 +3357,7 @@ namespace Mono.Documentation
 
             return;
             // oldnew
+            /*
 
             Action<XmlElement> addWantsToDelete = (elem) =>
             {
@@ -3392,7 +3420,7 @@ namespace Mono.Documentation
             if (e != null && e.ParentNode == null)
                 root.AppendChild (e);
 
-            NormalizeWhitespace (e);
+            NormalizeWhitespace (e);*/
         }
 
         public static string MakeAttributesValueString (object v, TypeReference valueType)

@@ -28,8 +28,11 @@ namespace Mono.Documentation.Updater.Frameworks
 
         public FrameworkEntry StartProcessingAssembly (AssemblySet set, AssemblyDefinition assembly, IEnumerable<DocumentationImporter> importers, string Id, string Version) 
 		{
-			if (string.IsNullOrWhiteSpace (this.path))
-				return FrameworkEntry.Empty;
+            if (string.IsNullOrWhiteSpace (this.path))
+            {
+                set.Framework = FrameworkEntry.Empty;
+                return FrameworkEntry.Empty;
+            }
 
 			string assemblyPath = assembly.MainModule.FileName;
 			var frameworksDirectory = this.path.EndsWith ("frameworks.xml", StringComparison.OrdinalIgnoreCase)
